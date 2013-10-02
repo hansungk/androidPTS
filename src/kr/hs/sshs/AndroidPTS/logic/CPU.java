@@ -17,7 +17,7 @@ import com.googlecode.javacv.cpp.opencv_core.IplImage;
 
 public class CPU {
 	/// Path to store resources
-	private static String PATH = "/mnt/sdcard/ptsmain/";
+	public static String PATH = "/mnt/sdcard/ptsmain/";
 
 	/// FFmpeg variables
 	static FrameGrabber grabber;
@@ -78,7 +78,7 @@ public class CPU {
 		// recorder = new FFmpegFrameRecorder(PATH + "video/trash.mp4", 640, 480);
 		// recorder.setFrameRate(30);
 		// recorder.start();
-		grabber = new FFmpegFrameGrabber(PATH + "video/trim.mp4");
+		grabber = new FFmpegFrameGrabber(PATH);
 		grabber.start();
 
 		// Get frame size and length

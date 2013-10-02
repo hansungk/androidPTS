@@ -1,31 +1,37 @@
 package kr.hs.sshs.AndroidPTS.ui;
 
-import kr.hs.sshs.AndroidPTS.logic.CPU;
-
-import static com.googlecode.javacv.cpp.opencv_core.*;
-import static com.googlecode.javacv.cpp.opencv_highgui.*;
-
-import com.googlecode.javacv.FrameGrabber;
-import com.googlecode.javacv.FrameGrabber.Exception;
+import static com.googlecode.javacv.cpp.opencv_highgui.cvSaveImage;
 
 import java.io.File;
+import java.io.IOException;
 
-import com.example.androidpts.R;
-
+import kr.hs.sshs.AndroidPTS.logic.CPU;
+import android.app.Activity;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.app.Activity;
-import android.graphics.BitmapFactory;
+import android.provider.MediaStore;
 import android.util.Log;
-import android.view.View;
 import android.view.Menu;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.example.androidpts.R;
+import com.googlecode.javacv.FrameGrabber;
+import com.googlecode.javacv.FrameGrabber.Exception;
+import com.googlecode.javacv.cpp.opencv_core.IplImage;
+
 public class MainActivity extends Activity implements View.OnClickListener {
+	
 	CPU ARMv7;
 	FrameGrabber grabber;
 
@@ -33,6 +39,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	ImageView iv;
 	Button btnProcess;
 	Button btnBypass;
+	Button btnGetVideo;
 	EditText etJumpFrame;
 	
 	IplImage result;
@@ -56,17 +63,13 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		tvCPU = (TextView) findViewById(R.id.textView_CPUState);
 		btnBypass = (Button) findViewById(R.id.button_Bypass);
 		btnProcess = (Button) findViewById(R.id.button_Process);
+		btnGetVideo = (Button) findViewById(R.id.button_getVideo);
 		btnBypass.setOnClickListener(this);
 		btnProcess.setOnClickListener(this);
+		btnGetVideo.setOnClickListener(this);
 		etJumpFrame = (EditText) findViewById(R.id.editText_JumpFrame);
 
-		try {
-			ARMv7 = new CPU(mh);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			Log.e("STOP", e.getMessage());
-		}
+		
 	}
 
 	public void onClick(View v) {
@@ -74,6 +77,17 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		
 		try {
 			switch (v.getId()) {
+			case R.id.button_getVideo:
+				btnGetVideo.setText("Pressed");
+				Intent intent = new Intent(
+                        Intent.ACTION_GET_CONTENT,      // 또는 ACTION_PICK
+                        android.provider.MediaStore.Images.Media.INTERNAL_CONTENT_URI);
+                intent.setType("video/*");              // 모든 이미지
+                startActivityForResult(intent, 0);
+                
+                break;
+                
+                
 			case R.id.button_Process:
 				tvCPU.setText("Busy");
 				Log.d("PASS", "Processing...");
@@ -90,7 +104,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 									break;
 							}
 							
-							//ARMv7.release();
+							ARMv7.release();//why 주석처리했었음?
 							
 							mh.sendMessage(mh.obtainMessage(100));	// When done
 						} catch (java.lang.Exception e) {
@@ -139,6 +153,32 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
 		Log.w("FFmpeg", "Reached end FROM BUTTON");
 		*/
+	}
+	
+	public void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == 0)
+			if (resultCode == Activity.RESULT_OK) {
+				Uri selectedVideo = data.getData();
+	      // TODO Do something with the select image URI
+				CPU.PATH=getRealPathFromURI(selectedVideo);
+			}
+		tvCPU.setText(CPU.PATH);
+		try {
+			ARMv7 = new CPU(mh);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			Log.e("STOP", e.getMessage());
+		}
+	}
+	
+	public String getRealPathFromURI(Uri contentUri){
+		String[] proj = {MediaStore.Video.Media.DATA };
+		Cursor cursor = getContentResolver().query(contentUri, proj, null, null, null);
+		int column_index = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
+		cursor.moveToFirst();
+		return cursor.getString(column_index);
 	}
 
 	public void showState(String state) {
