@@ -1,0 +1,5 @@
+# Java Files #
+*.class
+
+# Apk Files #
+*.apk
