@@ -132,6 +132,10 @@ public class CPU {
 	public IplImage process() throws Exception, InterruptedException, com.googlecode.javacv.FrameRecorder.Exception {
 		return process(false);
 	}
+	
+	public IplImage getTmpl() {
+		return imgTmpl;
+	}
 
 	public static IplImage grab() throws com.googlecode.javacv.FrameGrabber.Exception {
 		framecount++;

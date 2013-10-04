@@ -37,12 +37,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
 	TextView tvCPU;
 	ImageView iv;
+	ImageView movieplay;
 	Button btnProcess;
 	Button btnBypass;
 	Button btnGetVideo;
 	EditText etJumpFrame;
 	
 	IplImage result;
+	IplImage movieFrame;
 	
 	MyHandler mh;
 	
@@ -59,7 +61,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
 		mh = new MyHandler();
 		
-		iv = (ImageView) findViewById(R.id.imageView1);
+		iv = (ImageView) findViewById(R.id.imageView2);
+		movieplay = (ImageView) findViewById(R.id.imageView1);
 		tvCPU = (TextView) findViewById(R.id.textView_CPUState);
 		btnBypass = (Button) findViewById(R.id.button_Bypass);
 		btnProcess = (Button) findViewById(R.id.button_Process);
@@ -78,7 +81,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		try {
 			switch (v.getId()) {
 			case R.id.button_getVideo:
-				btnGetVideo.setText("Pressed");
 				Intent intent = new Intent(
                         Intent.ACTION_GET_CONTENT,      // 또는 ACTION_PICK
                         android.provider.MediaStore.Images.Media.INTERNAL_CONTENT_URI);
@@ -98,6 +100,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 						try {
 							while (CPU.framecount <= CPU.framelength) {
 								result = ARMv7.process();
+								movieFrame = ARMv7.getTmpl();
 								mh.sendMessage(mh.obtainMessage(101));	// When not done
 								
 								if(CPU.foundBall)
@@ -197,6 +200,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		@Override
 		public void handleMessage(Message msg) {
 			File pic2 = null;
+			File pic3 = null;
 			switch(msg.what) {
 			
 			case CPU.STATE_DETECT_VALUE_CHANGE:
@@ -233,12 +237,18 @@ public class MainActivity extends Activity implements View.OnClickListener {
 				cvSaveImage("/mnt/sdcard/result.jpg", result);
 				pic2 = new File("/mnt/sdcard", "result.jpg");		
 				iv.setImageBitmap(BitmapFactory.decodeFile(pic2.getAbsolutePath()));
+				cvSaveImage("/mnt/sdcard/movieFrame.jpg", movieFrame);
+				pic3 = new File("/mnt/sdcard", "movieFrame.jpg");		
+				movieplay.setImageBitmap(BitmapFactory.decodeFile(pic3.getAbsolutePath()));
 				break;
 				
 			case 100:				
 				cvSaveImage("/mnt/sdcard/result.jpg", result);
 				pic2 = new File("/mnt/sdcard", "result.jpg");		
 				iv.setImageBitmap(BitmapFactory.decodeFile(pic2.getAbsolutePath()));
+				cvSaveImage("/mnt/sdcard/movieFrame.jpg", movieFrame);
+				pic3 = new File("/mnt/sdcard", "movieFrame.jpg");		
+				movieplay.setImageBitmap(BitmapFactory.decodeFile(pic3.getAbsolutePath()));
 				
 				tvCPU.setText("�꾨즺! �꾨줈洹몃옩��醫낅즺�⑸땲��");
 				Log.d("PASS", "Done! saved result image");
