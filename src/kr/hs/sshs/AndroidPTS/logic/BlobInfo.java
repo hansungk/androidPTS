@@ -1,16 +1,11 @@
 package kr.hs.sshs.AndroidPTS.logic;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.googlecode.javacv.cpp.opencv_core.CvPoint;
-
-class Info{
+class BlobInfo {
 
 	int xmin, ymin, xmax, ymax, count;
 	public boolean condition;
 	
-	Info(int xmin, int ymin, int xmax, int ymax, int count) {
+	BlobInfo(int xmin, int ymin, int xmax, int ymax, int count) {
 		condition = false;
 		this.xmin = xmin;
 		this.ymin = ymin;
