@@ -112,7 +112,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 							mh.sendMessage(mh.obtainMessage(100));	// When done
 						} catch (java.lang.Exception e) {
 							e.printStackTrace();
-							Log.e("STOP", e.getMessage());
+							//Log.e("STOP", e.getMessage());
 						}
 					}
 				}.start();
