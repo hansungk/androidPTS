@@ -36,6 +36,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	FrameGrabber grabber;
 
 	TextView tvCPU;
+	TextView referee;
 	ImageView iv;
 	ImageView movieplay;
 	Button btnProcess;
@@ -49,6 +50,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	MyHandler mh;
 	
 	static double progress;
+	
+	public static boolean printCatcher = false;
+	
+	static int referee_flag;
 
 	public TextView gettvCPU() {
 		return this.tvCPU;
@@ -64,6 +69,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		iv = (ImageView) findViewById(R.id.imageView2);
 		movieplay = (ImageView) findViewById(R.id.imageView1);
 		tvCPU = (TextView) findViewById(R.id.textView_CPUState);
+		referee = (TextView) findViewById(R.id.referee);
 		btnBypass = (Button) findViewById(R.id.button_Bypass);
 		btnProcess = (Button) findViewById(R.id.button_Process);
 		btnGetVideo = (Button) findViewById(R.id.button_getVideo);
@@ -99,10 +105,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
 					public void run() {
 						try {
 							while (CPU.framecount <= CPU.framelength) {
+								printCatcher = false;
 								result = ARMv7.process();
+								if(printCatcher) result = ARMv7.imgCatcher;
 								movieFrame = ARMv7.getTmpl();
 								mh.sendMessage(mh.obtainMessage(101));	// When not done
-								
+							
 								if(CPU.foundBall)
 									break;
 							}
@@ -126,7 +134,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 				iv.setImageBitmap(BitmapFactory.decodeFile(pic2.getAbsolutePath()));
 				
 				Log.d("PASS", "Bypassed " + jump + " frames");
-				tvCPU.setText("吏�굹移�(" + CPU.framecount + "踰덉㎏ �꾨젅��");
+				tvCPU.setText(CPU.framecount + "개의 프레임을 건너뛰었습니다");
 				break;
 			}
 		} catch (java.lang.Exception e) {
@@ -185,7 +193,25 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	}
 
 	public void showState(String state) {
-		tvCPU.setText("吏꾪뻾 以�" + CPU.framecount + " frame, " + Math.round((float)CPU.framecount*100.0/CPU.framelength) + "%) - " + state);
+		tvCPU.setText("(" + CPU.framecount + " frame, " + Math.round((float)CPU.framecount*100.0/CPU.framelength) + "%) - " + state);
+	}
+	
+	public void refereeState() {
+		
+		switch (ARMv7.referee_state) {
+		
+		case 0 : 
+			referee.setText("");
+			break;
+		
+		case 1:
+			referee.setText("STRIKE");
+			break;
+			
+		case 2:
+			referee.setText("BALL");
+			break;
+		}
 	}
 	
 	@Override
@@ -231,6 +257,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
 			case CPU.STATE_FOUND_BALL:
 				showState("BALLFOUND");
 				Log.d("PASS", "BALL FOUND");
+				break;
+				
+			case CPU.STATE_BALL_CAUGHT:
+				showState("BALLCAUGHT");
+				refereeState();
+				Log.d("PASS", "BALL CAUGHT");
 				break;
 			
 			case 101:				

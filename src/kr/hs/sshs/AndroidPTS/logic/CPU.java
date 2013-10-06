@@ -33,7 +33,7 @@ public class CPU {
 
 	/// FFmpeg variables
 	static FrameGrabber grabber;
-	static FrameRecorder recorder;
+	//static FrameRecorder recorder;
 	
 	OpticalFlow opflow;
 	ValueChangeDetect vcd;
@@ -55,7 +55,7 @@ public class CPU {
 	//IplImage imgTemp2;
 	IplImage imgPyrA;	// PREV pyramid
 	IplImage imgPyrB;	// CURR pyramid
-	IplImage imgCatcher; //Image For Catcher
+	public IplImage imgCatcher; //Image For Catcher
 	//IplImage imgMorph;
 	//IplImage imgMorphSobel;
 
@@ -65,6 +65,9 @@ public class CPU {
 	static int width;
 	static int height;
 	static int cropsize = 70;
+	
+	//indicate strike-ball
+	public int referee_state=0;
 
 	/// Video infos
 	public static int framelength;	// Video frame length
@@ -107,7 +110,8 @@ public class CPU {
 	public static final int STATE_BLOB_LABELING = 2;
 	public static final int STATE_BLOB_FILTERING = 3;
 	public static final int STATE_CANDIDATE_PROCESSING = 4;
-	public static final int STATE_BLOB_STAMPING = 5;	
+	public static final int STATE_BLOB_STAMPING = 5;
+	public static final int STATE_BALL_CAUGHT = 6;
 	
 	MainActivity.MyHandler mh;
 	
@@ -128,13 +132,13 @@ public class CPU {
 		// recorder.start();
 		
 		opflow = new OpticalFlow();
+		vcd = new ValueChangeDetect();
 		
 		grabber = new FFmpegFrameGrabber(PATH);
 		grabber.start();
 
 		// Get frame size and length
-		//framelength = grabber.getLengthInFrames();
-		framelength = 53;
+		framelength = grabber.getLengthInFrames();
 		_size = cvGetSize(grab());
 		imgTmpl = cvCreateImage(_size, IPL_DEPTH_8U, 3);
 		cvCopy(grab(), imgTmpl);
@@ -314,7 +318,7 @@ public class CPU {
 		mh.sendMessage(mh.obtainMessage(STATE_BLOB_FILTERING));
 		///
 		/// BLOB FILTERING
-		blobFiltering(blobs, 3);
+		blobFiltering(blobs, 4);
 		///
 		///
 
@@ -421,8 +425,10 @@ public class CPU {
 		}
 
 		//candidateLengthCheck();
-		if(balldetermined)
-			ballJumpingCheck();
+		
+		//Important but need more improvements...
+		/*if(balldetermined)
+			ballJumpingCheck();*/
 		
 		//System.out.println("THERE ARE " + ballCandidates.size() + " CANDIDATES NOW"); //Print Candidate Number
 		drawCandidate(); //Create IplImage for view
@@ -739,13 +745,26 @@ public class CPU {
 		
 		cvResetImageROI(imgCatcher);
 		
-		cvRectangle(imgCatcher,new CvPoint(Math.max(Catcher.x()-10,0),Math.max(Catcher.y()-15,0)),new CvPoint(Math.min(Catcher.x()+10,width-1),Math.min(Catcher.y()+15,height-1)),new CvScalar(100,100,100,0),1,8,0);
-		cvRectangle(imgCatcher,new CvPoint(Math.max(caughtBallCtr.x()-3,0),Math.max(caughtBallCtr.y()-3,0)),new CvPoint(Math.min(caughtBallCtr.x()+3,width-1),Math.min(caughtBallCtr.y()+3,height-1)),new CvScalar(50,50,50,0),1,8,0);
+		if(caughtBallCtr.x()>Catcher.x()-8 && caughtBallCtr.x()<Catcher.x()+8 && caughtBallCtr.y()>Catcher.y()-12 && caughtBallCtr.y()<Catcher.y()+12){
+			referee_state=1;
+		}
+		else{
+			referee_state=2;
+		}
+		
+		//Printing Center of Catcher
+		//cvRectangle(imgCatcher,new CvPoint(Math.max(Catcher.x()-10,0),Math.max(Catcher.y()-15,0)),new CvPoint(Math.min(Catcher.x()+10,width-1),Math.min(Catcher.y()+15,height-1)),new CvScalar(100,100,100,0),1,8,0);
+		
+		//Printing Location of Ball
+		cvRectangle(imgCatcher,new CvPoint(Math.max(caughtBallCtr.x()-3,0),Math.max(caughtBallCtr.y()-3,0)),new CvPoint(Math.min(caughtBallCtr.x()+3,width-1),Math.min(caughtBallCtr.y()+3,height-1)),new CvScalar(255,255,255,0),1,8,0);
 		//cvRectangle(imgCatcher,new CvPoint(50,50),new CvPoint(100,100),new CvScalar(180,180,180,0),1,8,0);
 		
 		cvReleaseImage(imgCropped);
 		cvReleaseImage(imgCropped2);
 		cvReleaseImage(imgCropped3);
+		
+		mh.sendMessage(mh.obtainMessage(STATE_BALL_CAUGHT));
+		MainActivity.printCatcher = true;
 		
 		return shift;
 	}
@@ -767,7 +786,8 @@ public class CPU {
 		//cvReleaseImage(imgResult);
 		cvReleaseImage(imgBall);
 		cvReleaseImage(imgSobel);
-		cvReleaseImage(imgCropped);
+		if(imgCropped != null)
+			cvReleaseImage(imgCropped);
 		cvReleaseImage(imgTemp);
 		//cvReleaseImage(imgTemp2);
 		cvReleaseImage(imgPyrA);
@@ -778,8 +798,8 @@ public class CPU {
 		cvReleaseImage(imgFirstThrown3);
 		cvReleaseImage(imgCatcher);
 
-		recorder.stop();
-		recorder.release();
+		//recorder.stop();
+		//recorder.release();
 		grabber.stop();
 		grabber.release();
 

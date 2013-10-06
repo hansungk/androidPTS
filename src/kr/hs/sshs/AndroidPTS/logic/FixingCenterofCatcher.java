@@ -62,7 +62,9 @@ public class FixingCenterofCatcher {
 			//cvRectangle(background,new CvPoint(Math.max(pt.x()-4,0),Math.max(pt.y()-6,0)),new CvPoint(Math.min(pt.x()+4,background.width()-1),Math.min(pt.y()+6,background.height()-1)),new CvScalar(180,180,180,0),1,8,0);
 			//System.out.println("x : " +pt.x() +" y : " + pt.y());
 		}
-		cvRectangle(background,new CvPoint(Math.max(CenterOfCatcher.x()-10,0),Math.max(CenterOfCatcher.y()-15,0)),new CvPoint(Math.min(CenterOfCatcher.x()+10,background.width()-1),Math.min(CenterOfCatcher.y()+15,background.height()-1)),new CvScalar(255,255,255,0),1,8,0);
+		
+		//Printing Strikezone
+		cvRectangle(background,new CvPoint(Math.max(CenterOfCatcher.x()-7,0),Math.max(CenterOfCatcher.y()-11,0)),new CvPoint(Math.min(CenterOfCatcher.x()+7,background.width()-1),Math.min(CenterOfCatcher.y()+11,background.height()-1)),new CvScalar(255,255,255,0),1,8,0);
 		return CenterOfCatcher;
 	}
 	

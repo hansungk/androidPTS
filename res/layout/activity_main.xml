@@ -1,18 +1,28 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="fill_parent"
-    android:orientation="vertical" >
+    android:background="#ff101010">
 
     <Button
         android:id="@+id/button_getVideo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_gravity="center"
+        android:layout_marginTop="5dp"
+        android:layout_marginBottom="10dp"
+        android:textColor="#ffffffff"
         android:text="영상 불러오기" />
     
     <LinearLayout
-        android:layout_width = "wrap_content"
-        android:layout_height = "wrap_content" >
+        android:id="@+id/imageLayout"
+        android:layout_width = "fill_parent"
+        android:layout_height = "wrap_content"
+        android:layout_marginBottom="10dp"
+        android:layout_below="@id/button_getVideo"
+        android:orientation="vertical" >
     
 	    <ImageView
 	        android:id="@+id/imageView1"
@@ -20,6 +30,7 @@
 	        android:layout_height="wrap_content"
 	        android:layout_gravity="center"
 	        android:layout_weight="1"
+	        android:layout_marginBottom="10dp"
 	        android:src="@drawable/ic_action_search" />
 	    
 	    <ImageView
@@ -32,16 +43,12 @@
     
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/textView_CPUState"
+    <LinearLayout
+        android:id="@+id/buttonsLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="right"
-        android:text="TextView" />
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" >
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true" >
 
         <EditText
             android:id="@+id/editText_JumpFrame"
@@ -49,6 +56,8 @@
             android:layout_height="fill_parent"
             android:layout_weight="1"
             android:ems="10"
+            android:textColor="#ffffffff"
+            android:textCursorDrawable="@null"
             android:inputType="number" >
 
             <requestFocus />
@@ -58,13 +67,35 @@
             android:id="@+id/button_Bypass"
             android:layout_width="wrap_content"
             android:layout_height="fill_parent"
+            android:textColor="#ffffffff"
             android:text="Jump" />
 
         <Button
             android:id="@+id/button_Process"
             android:layout_width="wrap_content"
             android:layout_height="fill_parent"
+            android:textColor="#ffffffff"
             android:text="Process" />
     </LinearLayout>
 
-</LinearLayout>
+    <TextView
+        android:id="@+id/textView_CPUState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/buttonsLayout"
+        android:layout_alignRight="@+id/buttonsLayout"
+        android:textColor="#ffffffff"
+        android:text="TextView" />
+
+    <TextView
+        android:id="@+id/referee"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/imageLayout"
+        android:layout_centerHorizontal="true"
+        android:text=""
+        android:textColor="#ffffffff"
+        android:textSize="40dp"
+        android:textStyle="bold" />
+
+</RelativeLayout>

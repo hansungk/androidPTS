@@ -144,10 +144,10 @@ public class Candidate {
 			return nextCenter.x() + x_ROIWidth/2;
 	}
 	public int yROImin() {
-		if(this.centers.size()<9)
+		if(this.centers.size()<11)
 			return (int) (nextCenter.y() - y_ROIWidth*1.8);
 		else
-			return (currentCenter.y() -1); //占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占식울옙占쏙옙 占시라가댐옙 占쏙옙占쏙옙 占쏙옙鳴占�占쏙옙占쏙옙
+			return (int) (Math.max(nextCenter.y() - y_ROIWidth*1.8,currentCenter.y() -1)); //占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占식울옙占쏙옙 占시라가댐옙 占쏙옙占쏙옙 占쏙옙鳴占�占쏙옙占쏙옙
 	}
 	public int yROImax() {
 			return (int) (nextCenter.y() + y_ROIWidth*2.4);
