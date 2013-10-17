@@ -87,7 +87,7 @@ public class CPU {
 
 	/// Stores all Candidate objects
 	List<Candidate> ballCandidates = new ArrayList<Candidate>();//Candidate Storage
-	Candidate detectedball;
+	public Candidate detectedball;
 	static BallInfo	ballfinal = new BallInfo(new CvPoint(cropsize,cropsize));
 	static CvRect	ballcrop;
 	
@@ -185,9 +185,9 @@ public class CPU {
 		System.out.println("Welcome to the world of CPU!!!");
 		
 		// Refresh
-		imgTmpl = cvCreateImage(_size, IPL_DEPTH_8U, 3);
-		imgCandidate = cvCreateImage(_size, IPL_DEPTH_8U, 1);
-		cvSetImageCOI(imgTmpl, 0);
+		//imgTmpl = cvCreateImage(_size, IPL_DEPTH_8U, 3);
+		//imgCandidate = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		//cvSetImageCOI(imgTmpl, 0);
 
 		cvCopy(grab(), imgTmpl);
 		cvSmooth(imgTmpl, imgTmpl, CV_GAUSSIAN, 3);
@@ -318,7 +318,8 @@ public class CPU {
 		mh.sendMessage(mh.obtainMessage(STATE_BLOB_FILTERING));
 		///
 		/// BLOB FILTERING
-		blobFiltering(blobs, 4);
+		if(!balldetermined)
+			blobFiltering(blobs, 4);
 		///
 		///
 
@@ -357,7 +358,7 @@ public class CPU {
 							detectedball = new Candidate(cc);
 							drawBall();
 							System.out.println("BALL WAS CAUGHT /nf");
-							//System.out.println("The Speed of Pitch is " + 1503/detectedball.centers.size() + "km/h");
+							System.out.println("The Speed of Pitch is " + 1350/detectedball.centers.size() + "km/h");
 							ballfinal=detectedball.centers.get(detectedball.centers.size()-1); // last ball in the "elected" ball candidate
 							detectedCandidateSize = detectedball.centers.size();
 							
@@ -764,7 +765,7 @@ public class CPU {
 		cvReleaseImage(imgCropped3);
 		
 		mh.sendMessage(mh.obtainMessage(STATE_BALL_CAUGHT));
-		MainActivity.printCatcher = true;
+		//MainActivity.printCatcher = true;
 		
 		return shift;
 	}

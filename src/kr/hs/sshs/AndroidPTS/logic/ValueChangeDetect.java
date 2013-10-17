@@ -52,8 +52,8 @@ public class ValueChangeDetect {
 			}
 		}
 		
-		for (int x=30;x<width-30;x++) {
-			for (int y=30;y<height-60;y++){
+		for (int x=width/8;x<7*width/8;x++) {
+			for (int y=height/6;y<3*height/4;y++){
 				// if(compare_s(i,j)>s_thresh && compare_v(i,j)>v_thresh)
 				if(v_subst[x][y]>singlethresh){
 					if (compare_v(x,y)>v_thresh)

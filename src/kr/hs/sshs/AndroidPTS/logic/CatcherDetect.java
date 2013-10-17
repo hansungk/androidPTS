@@ -57,7 +57,7 @@ public class CatcherDetect {
 						bin[i][y]=0;
 						//bin[i][y+1]=0;
 						//cvSetReal2D(bw,y-1,i,0);
-						cvSetReal2D(bw,y,i,0);
+						//cvSetReal2D(bw,y,i,0);
 						//cvSetReal2D(bw,y+1,i,0);
 					}
 				}
@@ -190,7 +190,7 @@ public class CatcherDetect {
 			while(rEnd[n]==-1){n++; if(n==rH) {n--; break;}}
 			
 			//not good shape
-			if(lEnd[0]<lEnd[k]+2 || rEnd[0]>rEnd[n]-2) {
+			/*if(lEnd[0]<lEnd[k]+2 || rEnd[0]>rEnd[n]-2) {
 				//System.out.println("shape not catcher");
 				continue;
 			}
@@ -203,7 +203,7 @@ public class CatcherDetect {
 			if(rEnd[n]-lEnd[k]<10) {
 				//System.out.println("shape not catcher");
 				continue;
-			}
+			}*/
 			
 			for(int i = pX+rW/4; i < pX+3*rW/4; i++){
 				for(int j = pY+1; j < pY+rH/2; j++){
@@ -225,7 +225,7 @@ public class CatcherDetect {
 				}
 			}
 			//}
-			cvRectangle(bw,new CvPoint(pX+lMax,pY),new CvPoint(pX+rMax,pY+hMax),new CvScalar(180,180,180,0),1,8,0);
+			//cvRectangle(bw,new CvPoint(pX+lMax,pY),new CvPoint(pX+rMax,pY+hMax),new CvScalar(180,180,180,0),1,8,0);
 		
 			centers.add(new CvPoint(((2*pX+lMax+rMax)/2),((2*pY+hMax)/2)));
 		}

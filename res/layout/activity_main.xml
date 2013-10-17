@@ -97,5 +97,16 @@
         android:textColor="#ffffffff"
         android:textSize="40dp"
         android:textStyle="bold" />
+    
+    <TextView
+        android:id="@+id/speedgun"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/referee"
+        android:layout_centerHorizontal="true"
+        android:text=""
+        android:textColor="#ffffffff"
+        android:textSize="15dp"
+        android:textStyle="bold" />
 
 </RelativeLayout>

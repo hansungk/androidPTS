@@ -37,6 +37,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
 	TextView tvCPU;
 	TextView referee;
+	TextView speed;
 	ImageView iv;
 	ImageView movieplay;
 	Button btnProcess;
@@ -51,7 +52,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	
 	static double progress;
 	
-	public static boolean printCatcher = false;
+	//public static boolean printCatcher = false;
 	
 	static int referee_flag;
 
@@ -70,6 +71,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		movieplay = (ImageView) findViewById(R.id.imageView1);
 		tvCPU = (TextView) findViewById(R.id.textView_CPUState);
 		referee = (TextView) findViewById(R.id.referee);
+		speed = (TextView) findViewById(R.id.speedgun);
 		btnBypass = (Button) findViewById(R.id.button_Bypass);
 		btnProcess = (Button) findViewById(R.id.button_Process);
 		btnGetVideo = (Button) findViewById(R.id.button_getVideo);
@@ -105,9 +107,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
 					public void run() {
 						try {
 							while (CPU.framecount <= CPU.framelength) {
-								printCatcher = false;
+								//printCatcher = false;
 								result = ARMv7.process();
-								if(printCatcher) result = ARMv7.imgCatcher;
+								//if(printCatcher) result = ARMv7.imgCatcher;
 								movieFrame = ARMv7.getTmpl();
 								mh.sendMessage(mh.obtainMessage(101));	// When not done
 							
@@ -197,6 +199,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	}
 	
 	public void refereeState() {
+		
+		speed.setText("Speed : " + 1350/ARMv7.detectedball.centers.size() + " km/h");
 		
 		switch (ARMv7.referee_state) {
 		
