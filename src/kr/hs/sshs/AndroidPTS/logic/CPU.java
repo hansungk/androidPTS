@@ -79,7 +79,7 @@ public class CPU {
 
 	/// Indicates whether a candidate is found
 	static boolean balldetermined = false;
-	public static boolean foundBall = false;
+	public static boolean catcherprinted = false;
 
 	final static int ballthresh = 9;
 	
@@ -124,6 +124,10 @@ public class CPU {
 	 * Constructor
 	 * @throws Exception 
 	 */
+	public void getFrameLength() {
+		framelength = grabber.getLengthInFrames();
+	}
+	
 	public CPU(MainActivity.MyHandler handler_ex) throws Exception {
 		mh = handler_ex;
 		
@@ -133,12 +137,13 @@ public class CPU {
 		
 		opflow = new OpticalFlow();
 		vcd = new ValueChangeDetect();
-		
+		framecount=1;
 		grabber = new FFmpegFrameGrabber(PATH);
 		grabber.start();
+		getFrameLength();
 
 		// Get frame size and length
-		framelength = grabber.getLengthInFrames();
+		
 		_size = cvGetSize(grab());
 		imgTmpl = cvCreateImage(_size, IPL_DEPTH_8U, 3);
 		cvCopy(grab(), imgTmpl);
@@ -203,7 +208,7 @@ public class CPU {
 		System.out.println("############## FRAME " + framecount
 				+ " ##############");
 
-		return imgCandidate;
+		return imgCatcher;
 	}
 	
 	/**
@@ -217,9 +222,13 @@ public class CPU {
 		return imgTmpl;
 	}
 
-	public static IplImage grab() throws com.googlecode.javacv.FrameGrabber.Exception {
-		framecount++;
-		return grabber.grab();
+	public IplImage grab() throws com.googlecode.javacv.FrameGrabber.Exception {
+		if(framecount<framelength){
+			framecount++;
+			return grabber.grab();
+		}
+		else
+			return imgTmpl;
 	}
 
 	public static void pause() throws InterruptedException {
@@ -231,11 +240,26 @@ public class CPU {
 			grab();
 	}
 
-	public void jumpFrames(int frameJump) throws com.googlecode.javacv.FrameGrabber.Exception {
+	/*public void jumpFrames(int frameJump) throws com.googlecode.javacv.FrameGrabber.Exception {
 		for (int i=0; i<frameJump-1; i++)
 			grab();
+	}*/
+	
+	public IplImage jump1Frame() throws com.googlecode.javacv.FrameGrabber.Exception {
+		cvCopy(grab(),imgTmpl);
+		return imgTmpl;
+	}
+	
+	public IplImage jump5Frame() throws com.googlecode.javacv.FrameGrabber.Exception {
+		grab();grab();grab();grab();cvCopy(grab(),imgTmpl);
+		return imgTmpl;
 	}
 
+	public IplImage jump10Frame() throws com.googlecode.javacv.FrameGrabber.Exception {
+		grab();grab();grab();grab();grab();grab();grab();grab();grab();cvCopy(grab(),imgTmpl);
+		return imgTmpl;
+	}
+	
 	public void loadImage() {
 		imgTmpl = cvLoadImage(PATH + "template.jpg");
 
@@ -765,6 +789,7 @@ public class CPU {
 		cvReleaseImage(imgCropped3);
 		
 		mh.sendMessage(mh.obtainMessage(STATE_BALL_CAUGHT));
+		catcherprinted = true;
 		//MainActivity.printCatcher = true;
 		
 		return shift;

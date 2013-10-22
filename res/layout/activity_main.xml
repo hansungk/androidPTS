@@ -45,36 +45,45 @@
 
     <LinearLayout
         android:id="@+id/buttonsLayout"
-        android:layout_width="wrap_content"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true" >
-
-        <EditText
-            android:id="@+id/editText_JumpFrame"
-            android:layout_width="0dp"
-            android:layout_height="fill_parent"
-            android:layout_weight="1"
-            android:ems="10"
-            android:textColor="#ffffffff"
-            android:textCursorDrawable="@null"
-            android:inputType="number" >
-
-            <requestFocus />
-        </EditText>
+        android:layout_centerHorizontal="true"
+        android:weightSum="4" >
 
         <Button
-            android:id="@+id/button_Bypass"
+            android:id="@+id/button_1Frame"
             android:layout_width="wrap_content"
             android:layout_height="fill_parent"
             android:textColor="#ffffffff"
-            android:text="Jump" />
-
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="▶" />
+        
+        <Button
+            android:id="@+id/button_5Frame"
+            android:layout_width="wrap_content"
+            android:layout_height="fill_parent"
+            android:textColor="#ffffffff"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="▶▶" />
+        
+        <Button
+            android:id="@+id/button_10Frame"
+            android:layout_width="wrap_content"
+            android:layout_height="fill_parent"
+            android:textColor="#ffffffff"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="▶▶▶" />
+        
         <Button
             android:id="@+id/button_Process"
             android:layout_width="wrap_content"
             android:layout_height="fill_parent"
             android:textColor="#ffffffff"
+            android:layout_weight="1"
             android:text="Process" />
     </LinearLayout>
 
@@ -85,13 +94,22 @@
         android:layout_above="@+id/buttonsLayout"
         android:layout_alignRight="@+id/buttonsLayout"
         android:textColor="#ffffffff"
-        android:text="TextView" />
+        android:text="PTS for Android" />
+    
+    <TextView
+        android:id="@+id/setDistance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/textView_CPUState"
+        android:layout_alignRight="@+id/textView_CPUState"
+        android:textColor="#ffffffff"
+        android:text="18.44m" />
 
     <TextView
         android:id="@+id/referee"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/imageLayout"
+        android:layout_above="@+id/speedgun"
         android:layout_centerHorizontal="true"
         android:text=""
         android:textColor="#ffffffff"
@@ -102,7 +120,7 @@
         android:id="@+id/speedgun"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/referee"
+        android:layout_above="@+id/setDistance"
         android:layout_centerHorizontal="true"
         android:text=""
         android:textColor="#ffffffff"
