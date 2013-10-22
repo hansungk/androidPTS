@@ -1,6 +1,16 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/menu_settings"
-        android:title="@string/menu_settings"
-        android:orderInCategory="100"
-        android:showAsAction="never" />
+    <item android:id="@+id/menu_setdistance"
+        android:title="@string/menu_setdistance">
+        <menu>
+            <group android:id="@+id/check_distance"
+                android:checkableBehavior="single">
+	            <item android:id="@+id/adult"
+    	            android:title="성인 야구(18.44m)" />
+        	    <item android:id="@+id/little"
+            	    android:title="리틀 야구(14.02m)" />
+        	    <item android:id="@+id/custom"
+            	    android:title="사용자 지정" />
+        	</group>
+        </menu>
+    </item>
 </menu>

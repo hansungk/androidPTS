@@ -5,9 +5,6 @@ import static com.googlecode.javacv.cpp.opencv_core.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.googlecode.javacv.cpp.opencv_core.CvPoint;
-import com.googlecode.javacv.cpp.opencv_core.IplImage;
-
 public class Blob_Labeling {
 	
 	//static IplImage org;
@@ -20,7 +17,7 @@ public class Blob_Labeling {
 	
 	public static final int junk = -1;
 	
-	public static List<Info> blob;
+	public static List<BlobInfo> blob;
 	public static List<Integer> table;
 	public static List<List<CvPoint>> points;
 	
@@ -95,7 +92,7 @@ public class Blob_Labeling {
 	/**
 	* Detect blobs and return result as an IplImage
 	*/
-	public List<Info> detectBlob(int[][] org, int width, int height) {
+	public List<BlobInfo> detectBlob(int[][] org, int width, int height) {
 		
 		//org = cvCreateImage(cvGetSize(org_in),IPL_DEPTH_8U,1);
 		//cvCopy(org_in, org);
@@ -108,10 +105,10 @@ public class Blob_Labeling {
 		print = new int[width][height];
 		
 		// blobs = new ArrayList<List> ();
-		blob = new ArrayList<Info> ();
+		blob = new ArrayList<BlobInfo> ();
 		table = new ArrayList<Integer> ();
 		
-		blob.add(new Info(junk,junk,junk,junk,0));
+		blob.add(new BlobInfo(junk,junk,junk,junk,0));
 		points = new ArrayList<List<CvPoint>>();
 		points.add(new ArrayList<CvPoint> ());
 		table.add(0);
@@ -129,7 +126,7 @@ public class Blob_Labeling {
 				if ( check1(x,y)==0 && check2(x,y)==0 && check3(x,y)==0 && check4(x,y)==0 ) { 
 					val[x][y]=label; 
 					table.add(label,label);
-					blob.add(label,new Info(x,y,x,y,1)); 
+					blob.add(label,new BlobInfo(x,y,x,y,1)); 
 					points.add(label, new ArrayList<CvPoint>());
 					points.get(label).add(new CvPoint(x,y));
 					label++;
@@ -183,7 +180,7 @@ public class Blob_Labeling {
 			// count++;
 		}
 		
-		System.out.println("[Blob_Labelling.java] Blob size = " + blob.size());
+		//System.out.println("[Blob_Labelling.java] Blob size = " + blob.size());
 		//cvReleaseImage(org);
 		//cvReleaseImage(img);
 		return blob;
@@ -203,7 +200,7 @@ public class Blob_Labeling {
 		}
 	}
 	
-	public static void addinfo(Info a, Info b) {
+	public static void addinfo(BlobInfo a, BlobInfo b) {
 		b.count+=a.count;
 		if(b.xmin>a.xmin)
 			b.xmin=a.xmin;
@@ -215,7 +212,7 @@ public class Blob_Labeling {
 			b.ymax=a.ymax;
 	}
 	
-	public static void addinfo(Info b, int p, int q) {
+	public static void addinfo(BlobInfo b, int p, int q) {
 		b.count++;
 		if(b.xmin>p)
 			b.xmin=p;

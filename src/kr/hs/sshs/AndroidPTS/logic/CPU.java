@@ -8,11 +8,23 @@ import java.util.List;
 import java.util.ArrayList;
 
 import kr.hs.sshs.AndroidPTS.ui.MainActivity;
+import kr.hs.sshs.AndroidPTS.logic.BallInfo;
+import kr.hs.sshs.AndroidPTS.logic.BlobInfo;
+import kr.hs.sshs.AndroidPTS.logic.Blob_Labeling;
+import kr.hs.sshs.AndroidPTS.logic.CatcherDetect;
+import kr.hs.sshs.AndroidPTS.logic.ValueChangeDetect;
+import kr.hs.sshs.AndroidPTS.logic.Candidate;
+import kr.hs.sshs.AndroidPTS.logic.OpticalFlow;
+import kr.hs.sshs.AndroidPTS.logic.FixingCenterofCatcher;
 
 import com.googlecode.javacv.FFmpegFrameGrabber;
 import com.googlecode.javacv.FrameGrabber;
 import com.googlecode.javacv.FrameGrabber.Exception;
 import com.googlecode.javacv.FrameRecorder;
+import com.googlecode.javacv.cpp.opencv_core.CvPoint;
+import com.googlecode.javacv.cpp.opencv_core.CvRect;
+import com.googlecode.javacv.cpp.opencv_core.CvScalar;
+import com.googlecode.javacv.cpp.opencv_core.CvSize;
 import com.googlecode.javacv.cpp.opencv_core.IplImage;
 
 public class CPU {
@@ -21,29 +33,53 @@ public class CPU {
 
 	/// FFmpeg variables
 	static FrameGrabber grabber;
-	static FrameRecorder recorder;
+	//static FrameRecorder recorder;
+	
+	OpticalFlow opflow;
+	ValueChangeDetect vcd;
 
 	/// IplImage variables
 	IplImage imgTmpl;	// template image (RGB)
-	IplImage imgTmpl_prev;	// template image - 1 frame ago
 	IplImage imgBW;		// template blackwhite image
+	IplImage imgBW_prev;
 	IplImage imgBlob;	// Blob detection image
 	IplImage imgCandidate;	// Candidate image
-	IplImage imgResult;	// result image
+	//IplImage imgResult;	// result image
+
 	IplImage imgBall; //Ball Image
+	IplImage imgSobel; //Sobel Image
+	IplImage imgCropped;
+	IplImage imgCropped2;
+	IplImage imgCropped3;
+	IplImage imgTemp;
+	//IplImage imgTemp2;
+	IplImage imgPyrA;	// PREV pyramid
+	IplImage imgPyrB;	// CURR pyramid
+	public IplImage imgCatcher; //Image For Catcher
+	//IplImage imgMorph;
+	//IplImage imgMorphSobel;
 
 	/// Width and height of original frame
 	static CvSize _size;
+	static CvSize _pyrSize;
 	static int width;
 	static int height;
+	static int cropsize = 70;
+	
+	//indicate strike-ball
+	public int referee_state=0;
 
 	/// Video infos
 	public static int framelength;	// Video frame length
 	public static int framecount = 1;	// Current frame number
+	
+	//Flags
+	static boolean flag_OpflowInitiated = false;
+	static boolean flag_D_Pressed = false;
 
 	/// Indicates whether a candidate is found
 	static boolean balldetermined = false;
-	public static boolean foundBall = false;
+	public static boolean catcherprinted = false;
 
 	final static int ballthresh = 9;
 	
@@ -51,7 +87,22 @@ public class CPU {
 
 	/// Stores all Candidate objects
 	List<Candidate> ballCandidates = new ArrayList<Candidate>();//Candidate Storage
-	Candidate detectedball;
+	public Candidate detectedball;
+	static BallInfo	ballfinal = new BallInfo(new CvPoint(cropsize,cropsize));
+	static CvRect	ballcrop;
+	
+	/// Final and initial data of the thrown ball
+	IplImage		imgFinalCaught;
+	int				detectedCandidateSize;
+	CvPoint			caughtBallCtr;		// Center point of the finally caught ball	
+	// IplImages of the frame in which the ball starts to fly;
+	// will store probable imgFT2 and 3 at the same time by packing them into 3-element array
+	List<IplImage>				imgFramesBetweenCatches;	// store all frames between ball catches
+	IplImage					imgFirstThrown;
+	IplImage					imgFirstThrown2;	// imgFirstThrown + 1 frame
+	IplImage					imgFirstThrown3;	// imgFirstThrown + 2 frames
+	// Optical flow data
+	double[]		shiftThrowCatch = {-1, -1};		// -1 means not yet processed
 	
 	/// Indicates current CPU change
 	public static final int STATE_FOUND_BALL = 0; // (Most important)
@@ -59,7 +110,8 @@ public class CPU {
 	public static final int STATE_BLOB_LABELING = 2;
 	public static final int STATE_BLOB_FILTERING = 3;
 	public static final int STATE_CANDIDATE_PROCESSING = 4;
-	public static final int STATE_BLOB_STAMPING = 5;	
+	public static final int STATE_BLOB_STAMPING = 5;
+	public static final int STATE_BALL_CAUGHT = 6;
 	
 	MainActivity.MyHandler mh;
 	
@@ -72,29 +124,62 @@ public class CPU {
 	 * Constructor
 	 * @throws Exception 
 	 */
+	public void setFrameLength() {
+		framelength = grabber.getLengthInFrames();
+	}
+	
 	public CPU(MainActivity.MyHandler handler_ex) throws Exception {
 		mh = handler_ex;
 		
 		// recorder = new FFmpegFrameRecorder(PATH + "video/trash.mp4", 640, 480);
 		// recorder.setFrameRate(30);
 		// recorder.start();
+		
+		opflow = new OpticalFlow();
+		vcd = new ValueChangeDetect();
+		framecount=1;
 		grabber = new FFmpegFrameGrabber(PATH);
 		grabber.start();
+		setFrameLength();
 
 		// Get frame size and length
-		//framelength = grabber.getLengthInFrames();
-		framelength = 53;
+		
 		_size = cvGetSize(grab());
+		imgTmpl = cvCreateImage(_size, IPL_DEPTH_8U, 3);
+		cvCopy(grab(), imgTmpl);
+		imgBW = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		cvCvtColor(imgTmpl,imgBW,CV_RGB2GRAY);
+		
 		width = _size.width();
 		height = _size.height();
+		_pyrSize = new CvSize(_size.width()+8, _size.height()/3+1);
 
 		// Initialize IplImages
 		// (DO NOT RELEASE THESE --- intialized only 1 time, reused)
-		imgTmpl_prev = cvCreateImage(_size, IPL_DEPTH_8U, 3);
+		imgBW_prev = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		cvCopy(imgBW,imgBW_prev);
 		imgBall = cvCreateImage(_size,IPL_DEPTH_8U,1);
-		cvCopy(grab(), imgTmpl_prev);
+		cvCopy(grab(), imgTmpl);
+		cvCvtColor(imgTmpl,imgBW,CV_RGB2GRAY);
 
+		imgSobel = cvCreateImage(_size, IPL_DEPTH_8U,1);
+		imgPyrA = cvCreateImage(_size,IPL_DEPTH_32F,1);
+		imgPyrB = cvCreateImage(_size,IPL_DEPTH_32F,1);
+		imgBlob = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		imgTemp = cvCreateImage(_size,IPL_DEPTH_8U,1);
 		imgCandidate = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		imgCatcher = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		//m.imgMorphSobel = cvCreateImage(_size, IPL_DEPTH_8U,1);
+		//m.imgCropped = cvCreateImage(_size, IPL_DEPTH_8U,1);
+		//m.imgMorph = cvCreateImage(_size,IPL_DEPTH_8U,1);
+		imgFinalCaught = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		imgFirstThrown = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		imgFirstThrown2 = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		imgFirstThrown3 = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		
+		// Initialize variables used in decision
+		caughtBallCtr = new CvPoint(-1, -1);	// -1 means no ball was caught yet
+		imgFramesBetweenCatches = new ArrayList<IplImage>();
 	}
 
 	/**
@@ -105,9 +190,9 @@ public class CPU {
 		System.out.println("Welcome to the world of CPU!!!");
 		
 		// Refresh
-		imgTmpl = cvCreateImage(_size, IPL_DEPTH_8U, 3);
-		imgCandidate = cvCreateImage(_size, IPL_DEPTH_8U, 1);
-		cvSetImageCOI(imgTmpl, 0);
+		//imgTmpl = cvCreateImage(_size, IPL_DEPTH_8U, 3);
+		//imgCandidate = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		//cvSetImageCOI(imgTmpl, 0);
 
 		cvCopy(grab(), imgTmpl);
 		cvSmooth(imgTmpl, imgTmpl, CV_GAUSSIAN, 3);
@@ -118,12 +203,12 @@ public class CPU {
 		// Process image!
 		System.out.println("Thinking.....");
 		processImage();
-		cvCopy(imgTmpl, imgTmpl_prev);
+		cvCopy(imgBW, imgBW_prev);
 
 		System.out.println("############## FRAME " + framecount
 				+ " ##############");
 
-		return imgCandidate;
+		return imgCatcher;
 	}
 	
 	/**
@@ -137,9 +222,13 @@ public class CPU {
 		return imgTmpl;
 	}
 
-	public static IplImage grab() throws com.googlecode.javacv.FrameGrabber.Exception {
-		framecount++;
-		return grabber.grab();
+	public IplImage grab() throws com.googlecode.javacv.FrameGrabber.Exception {
+		if(framecount<framelength){
+			framecount++;
+			return grabber.grab();
+		}
+		else
+			return imgTmpl;
 	}
 
 	public static void pause() throws InterruptedException {
@@ -151,11 +240,26 @@ public class CPU {
 			grab();
 	}
 
-	public void jumpFrames(int frameJump) throws com.googlecode.javacv.FrameGrabber.Exception {
+	/*public void jumpFrames(int frameJump) throws com.googlecode.javacv.FrameGrabber.Exception {
 		for (int i=0; i<frameJump-1; i++)
 			grab();
+	}*/
+	
+	public IplImage jump1Frame() throws com.googlecode.javacv.FrameGrabber.Exception {
+		cvCopy(grab(),imgTmpl);
+		return imgTmpl;
+	}
+	
+	public IplImage jump5Frame() throws com.googlecode.javacv.FrameGrabber.Exception {
+		grab();grab();grab();grab();cvCopy(grab(),imgTmpl);
+		return imgTmpl;
 	}
 
+	public IplImage jump10Frame() throws com.googlecode.javacv.FrameGrabber.Exception {
+		grab();grab();grab();grab();grab();grab();grab();grab();grab();cvCopy(grab(),imgTmpl);
+		return imgTmpl;
+	}
+	
 	public void loadImage() {
 		imgTmpl = cvLoadImage(PATH + "template.jpg");
 
@@ -166,7 +270,7 @@ public class CPU {
 		}
 	}
 
-	public void stretch() {
+	/*public void stretch() {
 		IplImage imgBW = cvCreateImage(_size, IPL_DEPTH_8U, 1);
 		cvCvtColor(imgTmpl, imgBW, CV_RGB2GRAY);
 		imgResult = cvCreateImage(_size, IPL_DEPTH_8U, 1);
@@ -186,31 +290,47 @@ public class CPU {
 		cvCopy(imgBW, imgResult);
 
 		cvReleaseImage(imgBW);
-	}
+	}*/
 
 	/**
 	* Process the image!
 	*/
-	public void processImage() {		
-		width = imgTmpl.width();
-		height = imgTmpl.height();
+	public void processImage() {
 
-		imgBlob = cvCreateImage(_size, IPL_DEPTH_8U, 1);
-		imgBW = cvCreateImage(_size, IPL_DEPTH_8U, 1);
-		imgResult = cvCreateImage(_size, IPL_DEPTH_8U, 1);
 		cvCvtColor(imgTmpl, imgBW, CV_RGB2GRAY);
 		
 		binary = new int[width][height];
-
+		
 		Blob_Labeling bl;
-		List<Info> blobs;
-		IplImage imgRecovery;
+		List<BlobInfo> blobs;
+//		IplImage imgRecovery;
+		
+		cvCanny(imgBW,imgSobel,80,200,3);
+		CatcherDetect.main(imgSobel);
+
+		IplImage toAdd = cvCreateImage(_size, IPL_DEPTH_8U, 1);
+		cvCopy(imgBW, toAdd);
+		imgFramesBetweenCatches.add(toAdd);	// Don't forget to release them all later
 
 		mh.sendMessage(mh.obtainMessage(STATE_DETECT_VALUE_CHANGE));
 		/// DETECTING VALUE CHANGE		
-		SatChangeDetect scd = new SatChangeDetect();
-		scd.initialize(imgTmpl_prev, imgTmpl);
-		binary = scd.detectChange();
+		if(flag_D_Pressed) {
+			imgPyrA = imgPyrB;
+		}
+		int flag = (flag_OpflowInitiated)?((flag_D_Pressed)?0:1):2;
+		System.out.println("FLAG:" + flag);
+		double[] shift = opflow.processOpticalFlow(imgBW_prev, imgBW, imgPyrA, imgPyrB, flag);
+		flag_OpflowInitiated = true;
+		ValueChangeDetect.mX=(int)Math.round(shift[0]);
+		ValueChangeDetect.mY=(int)Math.round(shift[1]);
+		System.out.println(ValueChangeDetect.mX + " and " + ValueChangeDetect.mY);
+		
+		//new PyrA is not needed if you process next time
+		flag_D_Pressed = true;
+		
+		/// DETECTING VALUE CHANGE
+		vcd.initialize(imgBW_prev, imgBW);
+		binary = vcd.detectChange();
 
 		mh.sendMessage(mh.obtainMessage(STATE_BLOB_LABELING));
 		/// BLOB LABELING
@@ -222,7 +342,8 @@ public class CPU {
 		mh.sendMessage(mh.obtainMessage(STATE_BLOB_FILTERING));
 		///
 		/// BLOB FILTERING
-		blobFiltering(blobs, 3);
+		if(!balldetermined)
+			blobFiltering(blobs, 4);
 		///
 		///
 
@@ -233,88 +354,108 @@ public class CPU {
 		// and then put it onto the top of the ballCandidates
 		for (int q = ballCandidates.size()-1; q>=0; q--) {
 			Candidate cc = new Candidate(ballCandidates.get(q));
-
+			
 			boolean addedBlob = false; // Indicates whether any blob is added to Candidate cc 
-			for (Info blob : blobs) { // FOUND BLOB
-
+			for (BlobInfo blob : blobs) { // FOUND BLOB
+				
 				if (cc.xROImin() < blob.xcenter() && cc.xROImax() > blob.xcenter() && cc.yROImin()<blob.ycenter() && cc.yROImax() > blob.ycenter()) { //ROI Thresholding
-					System.out.println("Appending!!!!!!!!!!! in Candidate" + q);
-					cc.numOfMissingBlobs = 0;
-					// if (cc.centers.get(cc.centers.size()-1).count<20 || cc.countmin() < blob.count && cc.countmax() > blob.count) { //Size Thresholding : if blob is small, no application of size threshold
-					addedBlob = true;
-					ballCandidates.add(new Candidate(cc));
-					System.out.println("THERE ARE " + ballCandidates.size() + " CANDIDATES");
-					ballCandidates.get(ballCandidates.size()-1).add(new Simple(new CvPoint(blob.xcenter(),blob.ycenter()),blob.count));
-					//}
+					//System.out.println("Appending!!!!!!!!!!! in Candidate" + q);
+					if (cc.centers.get(cc.centers.size()-1).pixelcount<40 || cc.countmin() < blob.count && cc.countmax() > blob.count) { //Size Thresholding : if blob is small, no application of size threshold
+						//if(cc.disturbed==2)
+							//cc.disturbed=0;
+						//else if(cc.disturbed==1)
+						// cc.disturbed++;
+						cc.numOfMissingBlobs = 0;
+						addedBlob = true;
+						ballCandidates.add(new Candidate(cc));
+						//System.out.println("THERE ARE " + ballCandidates.size() + " CANDIDATES");
+						ballCandidates.get(ballCandidates.size()-1).add(new BallInfo(new CvPoint(blob.xcenter(),blob.ycenter()),blob.count));
+					}
 				}
 			}
 
-			if (!addedBlob) { // NOT FOUND BLOB
-
-				if (cc.numOfMissingBlobs > 0) { // If this blob should be removed
-					if(balldetermined){
+			if (!addedBlob) { // NOT FOUND BLOB					
+				if (balldetermined) { //If this ball is determined
+					if(cc.numOfMissingBlobs > 0){// If ball is considered to be caught
 						if(ballCandidates.size()==1){
-							// HERE
-							mh.sendMessage(mh.obtainMessage(STATE_FOUND_BALL));
-							foundBall = true;
-							
 							cc.centers.remove(cc.centers.size() - 1);
 							detectedball = new Candidate(cc);
 							drawBall();
-							System.out.println("The Speed of Pitch is " + 300/detectedball.centers.size() + "m/s");
+							System.out.println("BALL WAS CAUGHT /nf");
+							System.out.println("The Speed of Pitch is " + 1350/detectedball.centers.size() + "km/h");
+							ballfinal=detectedball.centers.get(detectedball.centers.size()-1); // last ball in the "elected" ball candidate
+							detectedCandidateSize = detectedball.centers.size();
+							
+							// Hookup of Strike-Ball
+							preprocessingStrikeBall();
+							
+							ValueChangeDetect.v_thresh=350;
+							ValueChangeDetect.singlethresh=40;
+							balldetermined=false;
+							
 						}
 					}
-					// Do nothing, let this blob removed (not added)
-				} else {						
-
-					// SUCCESS!!
-					ballCandidates.add(new Candidate(cc)); // auto-updated
-					ballCandidates.get(ballCandidates.size()-1).addMissed();
-
-
-					/*
-					// Also SUCCESS!
-					cc.addMissed();
-					ballCandidates.add(new Candidate(cc));	
-					 */	
-					System.out.println("遊먯� �잛닔 : " + cc.numOfMissingBlobs);
+					else {
+						// Do nothing, let this blob get removed (not added)
+						ballCandidates.add(new Candidate(cc)); // auto-updated
+						ballCandidates.get(ballCandidates.size()-1).addMissed();
+					}
+					
+				} else {
+					// Non-ball candidate blob jumping : Do nothing, let this blob removed (not added)
+					//System.out.println("Candidate deletion by missing blob");			
 				}
 			}
 
 			ballCandidates.remove(q); // Remove original Candidate
 		}
-
+		
 		if(ballCandidates.size()==0){
-			balldetermined=false;
+			balldetermined=false;	// Of course!
 		}
-
+		
 		for (Candidate cc : ballCandidates) {
 			if(cc.centers.size()>=ballthresh){
 				balldetermined=true;
 				cc.survive=true;
 			}
 		}
-
 		if(balldetermined){
 			for (int q = ballCandidates.size()-1; q>=0; q--) {
 				if(!ballCandidates.get(q).survive){
 					ballCandidates.remove(q);
 				}
 			}
-			System.out.println("BALL IS FOUND");
+			
+			int x1=Math.max(0,ballCandidates.get(0).xROImin());
+			int x2=Math.min(width-1,ballCandidates.get(0).xROImax());
+			int y1=Math.max(0,ballCandidates.get(0).yROImin());
+			int y2=Math.min(height-1,ballCandidates.get(0).yROImax());
+			
+			int avg = ValAverage(new CvPoint(x1,y1), new CvPoint(x2,y2), imgBW);
+			ValueChangeDetect.singlethresh = (255-avg)/8;
+			ValueChangeDetect.v_thresh = (255-avg);
+			
+			//System.out.println("BALL IS DETERMINED");
 		}
+		
 		// Finding the FIRST ball
 		if(!balldetermined){
-			for (Info blob : blobs) {
-				if (blob.count>=65) {
+			for (BlobInfo blob : blobs) {
+				if (blob.count>=45) {
 					ballCandidates.add(new Candidate(blob)); //New Candidate
-					System.out.println("NEW CANDIDATE WAS CREATED");
+					//System.out.println("NEW CANDIDATE WAS CREATED");
 				}
 			}
 		}
 
-		candidateLengthCheck();
-		System.out.println("THERE ARE " + ballCandidates.size() + " CANDIDATES NOW"); //Print Candidate Number
+		//candidateLengthCheck();
+		
+		//Important but need more improvements...
+		/*if(balldetermined)
+			ballJumpingCheck();*/
+		
+		//System.out.println("THERE ARE " + ballCandidates.size() + " CANDIDATES NOW"); //Print Candidate Number
 		drawCandidate(); //Create IplImage for view
 		/// CANDIDATE PROCESS END
 
@@ -354,18 +495,18 @@ public class CPU {
 	* @param blobs Blobs list
 	* @param adjBlobNumThreshold Minimum number of found adjacent blobs required to remove current blob.
 	*/
-	public void blobFiltering(List<Info> blobs, int adjBlobNumThreshold) {
+	public void blobFiltering(List<BlobInfo> blobs, int adjBlobNumThreshold) {
+
 		// Thickness of the searching box, wrapping around each blob
 		// (set 0 for testing)
 		int boxThickness = 20;
 
-
-		int currentLabel = 0; // Label of the current searching blob
+		//int currentLabel = 0; // Label of the current searching blob
 		for (int i = blobs.size() - 1; i > 0 ; i--) { // CAUTION -- No element in blobs.get(0) (background)
 			if (blobs.size() > 0) {
 				// System.out.println("Searching blob number " + (i+1) + "...");
 
-				Info currentBlob = blobs.get(i);
+				BlobInfo currentBlob = blobs.get(i);
 				int x = currentBlob.xcenter();
 				int y = currentBlob.ycenter();
 
@@ -378,7 +519,8 @@ public class CPU {
 				System.out.println("POS	: (" + x + ", " + y + ")");
 				*/
 
-				currentLabel = i;	
+				// Remove the current blob, to get it out of the way
+				//currentLabel = i;	
 
 				// Searching inside the box
 				List<Integer> detectedLabel = new ArrayList<Integer> (); // Labels detected inside the box
@@ -409,10 +551,11 @@ public class CPU {
 
 				if (detectedLabel.size() >= adjBlobNumThreshold) {
 					blobs.remove(i);
-					System.out.println("!!!!!!!!!!REMOVED!!!!!!!!!!");
 				} else {
-					System.out.println("-----------SAVED-----------");
 				}
+
+				// Recover the current blob for the next search,
+				// using its own original label (currentLabel)
 			}
 		}
 	}
@@ -429,7 +572,7 @@ public class CPU {
 		}
 		
 		for (int k = 0; k < ballCandidates.size(); k++) {
-			for (Simple pt : ballCandidates.get(k).centers) {
+			for (BallInfo pt : ballCandidates.get(k).centers) {
 				for (int i = -1; i <= 1; i++) {
 					for (int j = -1; j <= 1; j++) {
 						int ydraw = (int)((pt.ctr.y()+i<0)?Math.max(pt.ctr.y()+i,0):Math.min(pt.ctr.y()+i,height-1));
@@ -467,7 +610,7 @@ public class CPU {
 			}
 		}
 		
-		for (Simple pt : detectedball.centers) {
+		for (BallInfo pt : detectedball.centers) {
 			for (int i = -1; i <= 1; i++) {
 				for (int j = -1; j <= 1; j++) {
 					int ydraw = (int)((pt.ctr.y()+i<0)?Math.max(pt.ctr.y()+i,0):Math.min(pt.ctr.y()+i,height-1));
@@ -501,47 +644,155 @@ public class CPU {
 		}
 	}
 	
-	public void candidateJumpingCheck() {
-		for (int i = ballCandidates.size()-1; i>=0; i--) {
+	public void ballJumpingCheck() {
+
+		for (int i = ballCandidates.size() - 1; i >= 0; i--) {
+			boolean caught = false;
 			Candidate cd = ballCandidates.get(i);
-			int frames = cd.centers.size(); //Candidate elapsed frame
-			if (frames>=3) {
-				int lastmove = cd.centers.get(frames-1).ctr.x()-cd.centers.get(frames-2).ctr.x();
-				int prevmove = cd.centers.get(frames-2).ctr.x()-cd.centers.get(frames-3).ctr.x();
-				if(prevmove*lastmove<0){
-					if(prevmove>5){
-						ballCandidates.remove(i);
-						System.out.println("JUMPING CANDIDATE WAS REMOVED");
-					}
-					else if(prevmove>2){
-						if(Math.abs(lastmove)>=(Math.abs(prevmove)/2)){
-							ballCandidates.remove(i);
-							System.out.println("JUMPING CANDIDATE WAS REMOVED");
-						}
-					}
-					else{
-						if(Math.abs(lastmove)>Math.abs(prevmove)){
-							ballCandidates.remove(i);
-							System.out.println("JUMPING CANDIDATE WAS REMOVED");
-						}
+			int frames = cd.centers.size(); // Candidate elapsed frame
+			int lastxmove = cd.centers.get(frames - 1).ctr.x() - cd.centers.get(frames - 2).ctr.x();
+			int prevxmove = cd.centers.get(frames - 2).ctr.x() - cd.centers.get(frames - 3).ctr.x();
+			int lastymove = cd.centers.get(frames - 1).ctr.y() - cd.centers.get(frames - 2).ctr.y();
+			int prevymove = cd.centers.get(frames - 2).ctr.y() - cd.centers.get(frames - 3).ctr.y();
+			double angmove = Math.abs(Math.atan2(lastymove,lastxmove)-Math.atan2(prevymove,prevxmove));
+			if(angmove>Math.PI)
+				angmove=2*Math.PI-angmove;
+			//if(Math.atan2(prevymove,prevxmove)>Math.PI /*&& cd.disturbed==0*/){
+				if(angmove>Math.PI/6){
+					caught = true;
+				//System.out.println("ang");
+				}
+			//}
+			if(!caught /*&& cd.disturbed==0*/){
+				if (prevxmove * lastxmove < 0) {
+					if (Math.abs(lastxmove) > Math.abs(prevxmove)) {
+						caught = true;
+						//System.out.println("minus");
 					}
 				}
-				if(prevmove*lastmove>0){
-					if(prevmove<5){
-						if(Math.abs(lastmove)>=(Math.abs(prevmove)*1.3)){
-							ballCandidates.remove(i);
-							System.out.println("JUMPING CANDIDATE WAS REMOVED");
-						}
+				if (prevxmove * lastxmove > 0) {
+					if (Math.abs(lastxmove) >= (Math.max(Math.abs(prevxmove)*2 , 4))) {
+						caught = true;
+						//System.out.println("plus");
 					}
 				}
-				else if(prevmove==0){
-					if(Math.abs(lastmove)>=5) {
-						ballCandidates.remove(i);
-						System.out.println("JUMPING CANDIDATE WAS REMOVED");
+				else if (prevxmove == 0) {
+					if (Math.abs(lastxmove) >= 4) {
+						caught = true;
+						//System.out.println("zero");
 					}
 				}
 			}
+			
+			if (caught) {
+				if (ballCandidates.size() == 1) {
+					ballCandidates.get(0).centers.remove(ballCandidates.get(0).centers.size() - 1);
+					detectedball = new Candidate(ballCandidates.get(0));
+					drawBall();
+					System.out.println("BALL WAS CAUGHT /j");
+					//System.out.println("The Speed of Pitch is " + 1080/detectedball.centers.size() + "km/h");
+					ballfinal=detectedball.centers.get(detectedball.centers.size()-1);
+					detectedCandidateSize = detectedball.centers.size();
+					
+					/// Another place where ball is caught
+					preprocessingStrikeBall();
+					
+					ballCandidates.remove(0);
+					ValueChangeDetect.v_thresh=350;
+					ValueChangeDetect.singlethresh=40;
+					balldetermined=false;
+					
+				}
+				else {
+					ballCandidates.remove(i);
+				}
+			}
 		}
+	}
+	
+	/**
+	 * Pre-process for Strike-Ball decision.<br>
+	 * - Find final ball position<br>
+	 * - Store first and last frame of ball flying<br>
+	 * - Store 2 more frames right after the first frame, for accurate catcher detection
+	 * @return Background shift between the ball-thrown frame and the ball-caught frame
+	 */
+	public double[] preprocessingStrikeBall() {
+		// Store the last state of the ball
+		cvCopy(imgBW, imgFinalCaught);
+		caughtBallCtr = ballfinal.ctr;
+		// Find ball-thrown frame, "+1, "+2
+		int framesago = detectedCandidateSize+1;	// assume there was NOT a ball jumping at the end
+													// (therefore last ball caught was currframe-2
+		int thrownFrameIndex = (imgFramesBetweenCatches.size()-1) - framesago;
+		cvCopy(imgFramesBetweenCatches.get(thrownFrameIndex),imgFirstThrown);
+		cvCopy(imgFramesBetweenCatches.get(thrownFrameIndex+1),imgFirstThrown2);
+		cvCopy(imgFramesBetweenCatches.get(thrownFrameIndex+2),imgFirstThrown3);
+		
+		// Clear frames list
+		for (IplImage il : imgFramesBetweenCatches)	cvReleaseImage(il);
+		imgFramesBetweenCatches.clear();
+		
+		double[] shift = opflow.processOpticalFlow(imgFirstThrown, imgFinalCaught, imgPyrA, imgPyrB, 2);
+		System.out.println("xshift: " + shift[0]);
+		System.out.println("yshift: " + shift[1]);
+		shiftThrowCatch = shift;
+		
+		cvCanny(imgFirstThrown,imgFirstThrown,80,200,3);
+		cvCanny(imgFirstThrown2,imgFirstThrown2,80,200,3);
+		cvCanny(imgFirstThrown3,imgFirstThrown3,80,200,3);
+		
+		ballcrop = new CvRect(Math.max(ballfinal.x()-cropsize-(int)Math.round(shift[0]),0), Math.max(ballfinal.y()-cropsize-(int)Math.round(shift[1]),0), Math.min(2*cropsize,2*(width-ballfinal.x()-1)), Math.min(2*cropsize,2*(height-ballfinal.y()-1)));
+		cvSetImageROI(imgFirstThrown, ballcrop);
+		imgCropped = cvCreateImage(cvGetSize(imgFirstThrown),IPL_DEPTH_8U,1);
+		cvCopy(imgFirstThrown,imgCropped);
+		cvResetImageROI(imgFirstThrown);
+		cvSetImageROI(imgFirstThrown2, ballcrop);
+		imgCropped2 = cvCreateImage(cvGetSize(imgFirstThrown2),IPL_DEPTH_8U,1);
+		cvCopy(imgFirstThrown2,imgCropped2);
+		cvResetImageROI(imgFirstThrown2);
+		cvSetImageROI(imgFirstThrown3, ballcrop);
+		imgCropped3 = cvCreateImage(cvGetSize(imgFirstThrown3),IPL_DEPTH_8U,1);
+		cvCopy(imgFirstThrown3,imgCropped3);
+		cvResetImageROI(imgFirstThrown3);
+		cvCopy(imgBW,imgCatcher);
+		cvSetImageROI(imgCatcher,ballcrop);
+		CvPoint Catcher = FixingCenterofCatcher.findCatcher(imgCropped, imgCropped2, imgCropped3, new CvPoint((int)Math.round(shift[0]), (int)Math.round(shift[1])), caughtBallCtr, cropsize, imgCatcher);
+		if(Catcher == null){
+			System.out.println("Sorry. We couldn't recognize the catcher.");
+			cvResetImageROI(imgCatcher);
+			return null;
+		}
+		
+		Catcher.x(Catcher.x()+ballfinal.x()-cropsize-(int)Math.round(shift[0]));
+		Catcher.y(Catcher.y()+ballfinal.y()-cropsize-(int)Math.round(shift[1]));
+		System.out.println("x : " + Catcher.x() + " y : " + Catcher.y());
+		
+		cvResetImageROI(imgCatcher);
+		
+		if(caughtBallCtr.x()>Catcher.x()-8 && caughtBallCtr.x()<Catcher.x()+8 && caughtBallCtr.y()>Catcher.y()-12 && caughtBallCtr.y()<Catcher.y()+12){
+			referee_state=1;
+		}
+		else{
+			referee_state=2;
+		}
+		
+		//Printing Center of Catcher
+		//cvRectangle(imgCatcher,new CvPoint(Math.max(Catcher.x()-10,0),Math.max(Catcher.y()-15,0)),new CvPoint(Math.min(Catcher.x()+10,width-1),Math.min(Catcher.y()+15,height-1)),new CvScalar(100,100,100,0),1,8,0);
+		
+		//Printing Location of Ball
+		cvRectangle(imgCatcher,new CvPoint(Math.max(caughtBallCtr.x()-3,0),Math.max(caughtBallCtr.y()-3,0)),new CvPoint(Math.min(caughtBallCtr.x()+3,width-1),Math.min(caughtBallCtr.y()+3,height-1)),new CvScalar(255,255,255,0),1,8,0);
+		//cvRectangle(imgCatcher,new CvPoint(50,50),new CvPoint(100,100),new CvScalar(180,180,180,0),1,8,0);
+		
+		cvReleaseImage(imgCropped);
+		cvReleaseImage(imgCropped2);
+		cvReleaseImage(imgCropped3);
+		
+		mh.sendMessage(mh.obtainMessage(STATE_BALL_CAUGHT));
+		catcherprinted = true;
+		//MainActivity.printCatcher = true;
+		
+		return shift;
 	}
 	
 	public double dis(CvPoint pt1, CvPoint pt2){
@@ -553,17 +804,51 @@ public class CPU {
 	 * @throws com.googlecode.javacv.FrameRecorder.Exception 
 	*/
 	public void release() throws com.googlecode.javacv.FrameRecorder.Exception, Exception {
-		cvReleaseImage(imgBlob);
-		cvReleaseImage(imgResult);
-		cvReleaseImage(imgBW);
 		cvReleaseImage(imgTmpl);
+		cvReleaseImage(imgBW);
+		cvReleaseImage(imgBW_prev);
+		cvReleaseImage(imgBlob);
 		cvReleaseImage(imgCandidate);
+		//cvReleaseImage(imgResult);
+		cvReleaseImage(imgBall);
+		cvReleaseImage(imgSobel);
+		if(imgCropped != null)
+			cvReleaseImage(imgCropped);
+		cvReleaseImage(imgTemp);
+		//cvReleaseImage(imgTemp2);
+		cvReleaseImage(imgPyrA);
+		cvReleaseImage(imgPyrB);
+		cvReleaseImage(imgFinalCaught);
+		cvReleaseImage(imgFirstThrown);
+		cvReleaseImage(imgFirstThrown2);
+		cvReleaseImage(imgFirstThrown3);
+		cvReleaseImage(imgCatcher);
 
-		recorder.stop();
-		recorder.release();
+		//recorder.stop();
+		//recorder.release();
 		grabber.stop();
 		grabber.release();
 
 		System.out.println("(TERMINATED)");
+	}
+	
+	public String doubleArrayToString(double[] ds) {
+		String result = "";
+		for(int i=0; i<ds.length; i++) {
+			result += ds[i] + " ";
+		}
+		return result;
+	}
+	
+	public int ValAverage(CvPoint a, CvPoint b, IplImage bw){
+		
+		int sum=0;
+		for(int x=a.x(); x<b.x()+1; x++){
+			for(int y=a.y(); y<b.y()+1; y++){
+				sum+=cvGetReal2D(bw, y, x);
+			}
+		}
+		
+		return (int) (sum/((b.x()-a.x()+1)*(b.y()-a.y()+1)));
 	}
 }
