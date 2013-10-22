@@ -50,6 +50,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	Button btnPass1Frame;
 	Button btnPass5Frame;
 	Button btnPass10Frame;
+	Button btnStop;
+	ProcessThread thread;
 	//EditText etJumpFrame;
 	
 	IplImage result;
@@ -65,6 +67,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	static int referee_flag;
 	static final float ADULT=-1;
 	static final float LITTLE=-2;
+	boolean processingFlag = false;
 
 	public TextView gettvCPU() {
 		return this.tvCPU;
@@ -107,12 +110,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		btnPass5Frame = (Button) findViewById(R.id.button_5Frame);
 		btnPass10Frame = (Button) findViewById(R.id.button_10Frame);
 		btnGetVideo = (Button) findViewById(R.id.button_getVideo);
+		btnStop = (Button) findViewById(R.id.button_stop);
 		//btnBypass.setOnClickListener(this);
 		btnProcess.setOnClickListener(this);
 		btnGetVideo.setOnClickListener(this);
 		btnPass1Frame.setOnClickListener(this);
 		btnPass5Frame.setOnClickListener(this);
 		btnPass10Frame.setOnClickListener(this);
+		btnStop.setOnClickListener(this);
 		//etJumpFrame = (EditText) findViewById(R.id.editText_JumpFrame);
 
 		setDistance.setText(Float.toString(distance)+"m");
@@ -124,45 +129,40 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		try {
 			switch (v.getId()) {
 			case R.id.button_getVideo:
+				if(processingFlag){
+					processingFlag = false;
+					thread.flag=false;
+				}
 				Intent intent = new Intent(
                         Intent.ACTION_GET_CONTENT,      // 또는 ACTION_PICK
                         android.provider.MediaStore.Images.Media.INTERNAL_CONTENT_URI);
                 intent.setType("video/*");              // 모든 이미지
                 startActivityForResult(intent, 0);
+                System.out.println("Loaded");
                 
                 break;
                 
                 
 			case R.id.button_Process:
-				tvCPU.setText("Busy");
 				Log.d("PASS", "Processing...");
 				
-				new Thread() {
-					@Override
-					public void run() {
-						try {
-							while (CPU.framecount < CPU.framelength) {
-								//printCatcher = false;
-								result = ARMv7.process();
-								//if(printCatcher) result = ARMv7.imgCatcher;
-								movieFrame = ARMv7.getTmpl();
-								mh.sendMessage(mh.obtainMessage(101));	// When not done
-							}
-							
-							ARMv7.release();//why 주석처리했었음?
-							
-							mh.sendMessage(mh.obtainMessage(100));	// When done
-						} catch (java.lang.Exception e) {
-							e.printStackTrace();
-							//Log.e("STOP", e.getMessage());
-						}
-					}
-				}.start();
+				if(!processingFlag){
+					thread = new ProcessThread();
+					thread.flag = true;
+					thread.start();
+					processingFlag = true;
+				}
+				
 				break;
 				
 			case R.id.button_1Frame:
 				try {
+					if(processingFlag){
+						processingFlag = false;
+						thread.flag=false;
+					}
 					movieFrame = ARMv7.jump1Frame();
+					showState("");
 					mh.sendMessage(mh.obtainMessage(101));
 				} catch (java.lang.Exception e) {
 					e.printStackTrace();
@@ -171,7 +171,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
 				
 			case R.id.button_5Frame:
 				try {
+					if(processingFlag){
+						processingFlag = false;
+						thread.flag=false;
+					}
 					movieFrame = ARMv7.jump5Frame();
+					showState("");
 					mh.sendMessage(mh.obtainMessage(101));
 				} catch (java.lang.Exception e) {
 					e.printStackTrace();
@@ -180,11 +185,24 @@ public class MainActivity extends Activity implements View.OnClickListener {
 				
 			case R.id.button_10Frame:
 				try {
+					if(processingFlag){
+						processingFlag = false;
+						thread.flag=false;
+					}
 					movieFrame = ARMv7.jump10Frame();
+					showState("");
 					mh.sendMessage(mh.obtainMessage(101));
 				} catch (java.lang.Exception e) {
 					e.printStackTrace();
 				}
+				break;
+				
+			case R.id.button_stop:
+				if(processingFlag){
+					processingFlag = false;
+					thread.flag=false;
+				}
+				showState("");
 				break;
 
 			/*case R.id.button_Bypass:		
@@ -433,4 +451,33 @@ public class MainActivity extends Activity implements View.OnClickListener {
 			}
 		}
 	}
+	
+	class ProcessThread extends Thread {
+		
+		public boolean flag = true;
+		
+		public void run(){
+			try {
+				while (flag && CPU.framecount < CPU.framelength) {
+					//printCatcher = false;
+					result = ARMv7.process();
+					//if(printCatcher) result = ARMv7.imgCatcher;
+					movieFrame = ARMv7.getTmpl();
+					mh.sendMessage(mh.obtainMessage(101));	// When not done
+				}
+				
+				if(!flag) return;
+				
+				ARMv7.release();//why 주석처리했었음?
+				processingFlag = false;
+				mh.sendMessage(mh.obtainMessage(100));	// When done	
+				
+			} catch (java.lang.Exception e) {
+				e.printStackTrace();
+				//Log.e("STOP", e.getMessage());
+			}
+			
+		}
+	}
+	
 }

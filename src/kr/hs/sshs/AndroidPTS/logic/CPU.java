@@ -124,7 +124,7 @@ public class CPU {
 	 * Constructor
 	 * @throws Exception 
 	 */
-	public void getFrameLength() {
+	public void setFrameLength() {
 		framelength = grabber.getLengthInFrames();
 	}
 	
@@ -140,7 +140,7 @@ public class CPU {
 		framecount=1;
 		grabber = new FFmpegFrameGrabber(PATH);
 		grabber.start();
-		getFrameLength();
+		setFrameLength();
 
 		// Get frame size and length
 		
